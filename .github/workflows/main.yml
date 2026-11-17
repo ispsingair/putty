@@ -1,10 +1,9 @@
-name: Build PuTTY for Windows
+name: Build PuTTY Windows
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
@@ -14,23 +13,36 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure CMake
-        run: cmake -S . -B build -A x64
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Setup Perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5.40'
+
+      - name: Generate Makefiles
+        shell: cmd
+        run: perl mkfiles.pl
 
       - name: Compile PuTTY
-        run: cmake --build build --config Release --parallel
+        shell: cmd
+        working-directory: windows
+        run: nmake -f Makefile.vc
 
-      - name: Collect executables
+      - name: Collect EXE files
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path dist
-          Get-ChildItem build -Recurse -Filter *.exe |
+          New-Item -ItemType Directory -Force dist
+          Get-ChildItem windows -Recurse -Filter *.exe |
             Copy-Item -Destination dist -Force
 
-      - name: Upload Windows executables
+      - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: PuTTY-Windows-x64
