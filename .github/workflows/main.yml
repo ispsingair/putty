@@ -1,0 +1,38 @@
+name: Build PuTTY for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S . -B build -A x64
+
+      - name: Compile PuTTY
+        run: cmake --build build --config Release --parallel
+
+      - name: Collect executables
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Get-ChildItem build -Recurse -Filter *.exe |
+            Copy-Item -Destination dist -Force
+
+      - name: Upload Windows executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: PuTTY-Windows-x64
+          path: dist/*.exe
+          if-no-files-found: error
