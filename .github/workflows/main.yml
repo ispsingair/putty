@@ -1,9 +1,10 @@
-name: Build PuTTY Windows
+name: Build PuTTY Windows x64
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - master
 
 permissions:
   contents: read
@@ -13,7 +14,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup MSVC
@@ -26,21 +27,29 @@ jobs:
         with:
           perl-version: '5.40'
 
-      - name: Generate Makefiles
-        shell: cmd
+      - name: Generate Windows Makefiles
         run: perl mkfiles.pl
 
+      - name: Verify Makefile
+        shell: pwsh
+        run: |
+          if (!(Test-Path "windows/Makefile.vc")) {
+            throw "Windows Makefile generation failed"
+          }
+
       - name: Compile PuTTY
-        shell: cmd
         working-directory: windows
         run: nmake -f Makefile.vc
 
-      - name: Collect EXE files
+      - name: Collect executables
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force dist
+          New-Item -ItemType Directory -Force dist | Out-Null
+
           Get-ChildItem windows -Recurse -Filter *.exe |
             Copy-Item -Destination dist -Force
+
+          Get-ChildItem dist
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
@@ -48,3 +57,4 @@ jobs:
           name: PuTTY-Windows-x64
           path: dist/*.exe
           if-no-files-found: error
+          retention-days: 30
